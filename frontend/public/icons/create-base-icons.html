@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate PWA Icons</title>
+</head>
+<body>
+    <canvas id="canvas" width="512" height="512" style="border: 1px solid #ccc;"></canvas>
+    <br><br>
+    <button onclick="generateIcons()">Generate Icons</button>
+    <div id="output"></div>
+
+    <script>
+        function generateIcons() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, 512, 512);
+            
+            // Background
+            ctx.fillStyle = '#2563eb';
+            ctx.fillRect(0, 0, 512, 512);
+            
+            // Rounded corners effect
+            ctx.globalCompositeOperation = 'destination-in';
+            ctx.beginPath();
+            ctx.roundRect(0, 0, 512, 512, 64);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+            
+            // Camera body
+            ctx.fillStyle = 'white';
+            ctx.fillRect(160, 192, 192, 128);
+            
+            // Camera lens
+            ctx.fillStyle = '#2563eb';
+            ctx.beginPath();
+            ctx.arc(256, 256, 32, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Camera top
+            ctx.fillStyle = 'white';
+            ctx.fillRect(224, 176, 64, 16);
+            
+            // Stars
+            ctx.fillStyle = '#fbbf24';
+            const starPositions = [
+                {x: 152, y: 360},
+                {x: 192, y: 360},
+                {x: 232, y: 360},
+                {x: 272, y: 360}
+            ];
+            
+            starPositions.forEach(pos => {
+                drawStar(ctx, pos.x, pos.y, 12);
+            });
+            
+            // Last star (empty)
+            ctx.fillStyle = '#d1d5db';
+            drawStar(ctx, 312, 360, 12);
+            
+            // Generate different sizes
+            const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+            const output = document.getElementById('output');
+            output.innerHTML = '<h3>Generated Icons (right-click to save):</h3>';
+            
+            sizes.forEach(size => {
+                const smallCanvas = document.createElement('canvas');
+                smallCanvas.width = size;
+                smallCanvas.height = size;
+                const smallCtx = smallCanvas.getContext('2d');
+                smallCtx.drawImage(canvas, 0, 0, size, size);
+                
+                const img = document.createElement('img');
+                img.src = smallCanvas.toDataURL('image/png');
+                img.style.margin = '5px';
+                img.style.border = '1px solid #ccc';
+                img.title = `icon-${size}x${size}.png`;
+                
+                const label = document.createElement('div');
+                label.textContent = `${size}x${size}`;
+                label.style.textAlign = 'center';
+                label.style.fontSize = '12px';
+                
+                const container = document.createElement('div');
+                container.style.display = 'inline-block';
+                container.style.margin = '10px';
+                container.appendChild(img);
+                container.appendChild(label);
+                
+                output.appendChild(container);
+            });
+        }
+        
+        function drawStar(ctx, x, y, size) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                ctx.lineTo(Math.cos((18 + i * 72) / 180 * Math.PI) * size, 
+                          -Math.sin((18 + i * 72) / 180 * Math.PI) * size);
+                ctx.lineTo(Math.cos((54 + i * 72) / 180 * Math.PI) * size * 0.5, 
+                          -Math.sin((54 + i * 72) / 180 * Math.PI) * size * 0.5);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+        
+        // Auto-generate on load
+        window.onload = generateIcons;
+    </script>
+</body>
+</html>

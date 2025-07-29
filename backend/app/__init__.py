@@ -1,0 +1,1 @@
+# SnapRate Backend Application

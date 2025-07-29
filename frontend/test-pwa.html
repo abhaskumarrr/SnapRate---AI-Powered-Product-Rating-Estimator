@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Test - SnapRate</title>
+    <link rel="manifest" href="/manifest.json">
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .test-item { margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .pass { background-color: #d4edda; border-color: #c3e6cb; }
+        .fail { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { background: #2563eb; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #1d4ed8; }
+    </style>
+</head>
+<body>
+    <h1>SnapRate PWA Configuration Test</h1>
+    <p>This page tests the PWA configuration for SnapRate.</p>
+    
+    <div id="test-results"></div>
+    
+    <button onclick="runTests()">Run PWA Tests</button>
+    <button onclick="testInstallPrompt()">Test Install Prompt</button>
+    
+    <script>
+        function addTestResult(name, passed, message) {
+            const results = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = `test-item ${passed ? 'pass' : 'fail'}`;
+            div.innerHTML = `<strong>${name}:</strong> ${passed ? 'PASS' : 'FAIL'} - ${message}`;
+            results.appendChild(div);
+        }
+        
+        function addInfo(message) {
+            const results = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = 'test-item info';
+            div.innerHTML = `<strong>INFO:</strong> ${message}`;
+            results.appendChild(div);
+        }
+        
+        async function runTests() {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<h2>Test Results:</h2>';
+            
+            // Test 1: Service Worker Support
+            const swSupported = 'serviceWorker' in navigator;
+            addTestResult('Service Worker Support', swSupported, 
+                swSupported ? 'Browser supports service workers' : 'Browser does not support service workers');
+            
+            // Test 2: Manifest Support
+            const manifestSupported = 'manifest' in document.createElement('link');
+            addTestResult('Manifest Support', manifestSupported,
+                manifestSupported ? 'Browser supports web app manifest' : 'Browser does not support web app manifest');
+            
+            // Test 3: Fetch Manifest
+            try {
+                const manifestResponse = await fetch('/manifest.json');
+                const manifestData = await manifestResponse.json();
+                addTestResult('Manifest Fetch', manifestResponse.ok, 
+                    manifestResponse.ok ? `Manifest loaded successfully (${manifestData.name})` : 'Failed to load manifest');
+                
+                if (manifestResponse.ok) {
+                    addInfo(`App Name: ${manifestData.name}`);
+                    addInfo(`Short Name: ${manifestData.short_name}`);
+                    addInfo(`Icons: ${manifestData.icons.length} icons defined`);
+                }
+            } catch (error) {
+                addTestResult('Manifest Fetch', false, `Error fetching manifest: ${error.message}`);
+            }
+            
+            // Test 4: Service Worker Registration
+            if (swSupported) {
+                try {
+                    const registration = await navigator.serviceWorker.getRegistration();
+                    addTestResult('Service Worker Registration', !!registration,
+                        registration ? 'Service worker is registered' : 'Service worker is not registered');
+                    
+                    if (registration) {
+                        addInfo(`SW Scope: ${registration.scope}`);
+                        addInfo(`SW State: ${registration.active ? registration.active.state : 'No active worker'}`);
+                    }
+                } catch (error) {
+                    addTestResult('Service Worker Registration', false, `Error checking registration: ${error.message}`);
+                }
+            }
+            
+            // Test 5: PWA Install Prompt Support
+            const installSupported = 'BeforeInstallPromptEvent' in window || 'onbeforeinstallprompt' in window;
+            addTestResult('Install Prompt Support', installSupported,
+                installSupported ? 'Browser supports PWA install prompts' : 'Browser may not support PWA install prompts');
+            
+            // Test 6: Cache API Support
+            const cacheSupported = 'caches' in window;
+            addTestResult('Cache API Support', cacheSupported,
+                cacheSupported ? 'Browser supports Cache API' : 'Browser does not support Cache API');
+            
+            // Test 7: Check if running as PWA
+            const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                         window.navigator.standalone === true;
+            addInfo(`Currently running as PWA: ${isPWA ? 'Yes' : 'No'}`);
+            
+            // Test 8: Online/Offline Detection
+            addInfo(`Online Status: ${navigator.onLine ? 'Online' : 'Offline'}`);
+        }
+        
+        function testInstallPrompt() {
+            addInfo('Install prompt test initiated. Check console for details.');
+            
+            // Simulate install prompt event
+            window.dispatchEvent(new Event('beforeinstallprompt'));
+            
+            // Check if we can trigger install
+            if (window.deferredPrompt) {
+                window.deferredPrompt.prompt();
+            } else {
+                addInfo('No deferred install prompt available. This is normal if the app is already installed or criteria are not met.');
+            }
+        }
+        
+        // Auto-run tests on load
+        window.addEventListener('load', () => {
+            setTimeout(runTests, 1000); // Give time for service worker to register
+        });
+        
+        // Listen for PWA events
+        window.addEventListener('beforeinstallprompt', (e) => {
+            addInfo('Install prompt event detected!');
+            window.deferredPrompt = e;
+        });
+        
+        window.addEventListener('appinstalled', () => {
+            addInfo('App was installed successfully!');
+        });
+    </script>
+</body>
+</html>

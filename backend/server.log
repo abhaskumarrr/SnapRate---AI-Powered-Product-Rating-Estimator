@@ -1,0 +1,29 @@
+2025-07-25 22:52:14,608 - snaprate - INFO - Starting application in Environment.DEVELOPMENT mode
+/Users/abhaskumarrr/Documents/GitHub/SnapRate---AI-Powered-Product-Rating-Estimator/backend/app/main.py:88: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/Users/abhaskumarrr/Documents/GitHub/SnapRate---AI-Powered-Product-Rating-Estimator/backend/app/main.py:98: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Will watch for changes in these directories: ['/Users/abhaskumarrr/Documents/GitHub/SnapRate---AI-Powered-Product-Rating-Estimator/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [20477] using StatReload
+2025-07-25 22:52:14,917 - snaprate - INFO - Starting application in Environment.DEVELOPMENT mode
+INFO:     Started server process [20484]
+INFO:     Waiting for application startup.
+2025-07-25 22:52:14,986 - snaprate - INFO - Starting SnapRate API v1.0.0
+2025-07-25 22:52:14,986 - snaprate - INFO - Environment: Environment.DEVELOPMENT
+2025-07-25 22:52:14,986 - snaprate - INFO - Configuration: {'app_name': 'SnapRate API', 'app_version': '1.0.0', 'environment': <Environment.DEVELOPMENT: 'development'>, 'debug': False, 'api_host': '0.0.0.0', 'api_port': 8000, 'workers': 1, 'rate_limit_enabled': True, 'cache_enabled': True, 'model_optimization': False, 'enable_metrics': False}
+INFO:     Application startup complete.
+2025-07-25 22:52:34,324 - snaprate - INFO - GET / - 200 - 0.0003s
+INFO:     127.0.0.1:61084 - "GET / HTTP/1.1" 200 OK
+2025-07-26 00:35:39,966 - snaprate - INFO - GET /healthcheck - 200 - 0.0227s
+INFO:     127.0.0.1:62670 - "GET /healthcheck HTTP/1.1" 200 OK

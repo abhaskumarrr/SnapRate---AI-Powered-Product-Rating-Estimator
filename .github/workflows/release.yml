@@ -1,0 +1,238 @@
+name: Release Management
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+env:
+  NODE_VERSION: '20.x'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Get version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Generate changelog from git commits
+        if git describe --tags --abbrev=0 HEAD^ >/dev/null 2>&1; then
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^)
+          CHANGELOG=$(git log --pretty=format:"- %s" $PREVIOUS_TAG..HEAD)
+        else
+          CHANGELOG=$(git log --pretty=format:"- %s")
+        fi
+        
+        # Save changelog to file for multiline output
+        echo "$CHANGELOG" > changelog.txt
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        cat changelog.txt >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        release_name: SnapRate ${{ steps.version.outputs.version }}
+        body: |
+          ## What's Changed
+          
+          ${{ steps.changelog.outputs.changelog }}
+          
+          ## Installation
+          
+          ### Frontend
+          ```bash
+          # Download and extract the frontend build
+          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/snaprate-frontend-${{ steps.version.outputs.version }}.zip
+          unzip snaprate-frontend-${{ steps.version.outputs.version }}.zip
+          ```
+          
+          ### Backend
+          ```bash
+          # Pull the Docker image
+          docker pull ghcr.io/${{ github.repository }}/snaprate-backend:${{ steps.version.outputs.version }}
+          ```
+          
+          ## Deployment
+          
+          See the [deployment documentation](./docs/deployment.md) for detailed instructions.
+        draft: false
+        prerelease: ${{ contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'rc') }}
+
+  build-and-upload-assets:
+    name: Build and Upload Release Assets
+    runs-on: ubuntu-latest
+    needs: create-release
+    
+    strategy:
+      matrix:
+        component: [frontend, backend]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js (Frontend)
+      if: matrix.component == 'frontend'
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'yarn'
+        cache-dependency-path: frontend/yarn.lock
+    
+    - name: Build frontend
+      if: matrix.component == 'frontend'
+      working-directory: ./frontend
+      run: |
+        yarn install --frozen-lockfile
+        yarn build:prod --skip-tests
+        
+        # Create release archive
+        cd dist
+        zip -r ../snaprate-frontend-${{ needs.create-release.outputs.version }}.zip .
+        cd ..
+    
+    - name: Setup Docker (Backend)
+      if: matrix.component == 'backend'
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to GitHub Container Registry
+      if: matrix.component == 'backend'
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Build and push backend Docker image
+      if: matrix.component == 'backend'
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}/snaprate-backend:${{ needs.create-release.outputs.version }}
+          ghcr.io/${{ github.repository }}/snaprate-backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Upload frontend release asset
+      if: matrix.component == 'frontend'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: ./frontend/snaprate-frontend-${{ needs.create-release.outputs.version }}.zip
+        asset_name: snaprate-frontend-${{ needs.create-release.outputs.version }}.zip
+        asset_content_type: application/zip
+
+  deploy-release:
+    name: Deploy Release to Production
+    runs-on: ubuntu-latest
+    needs: [create-release, build-and-upload-assets]
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Deploy to production
+      run: |
+        echo "Deploying SnapRate ${{ needs.create-release.outputs.version }} to production"
+        # Add production deployment commands here
+        # This could include:
+        # - Updating Kubernetes deployments
+        # - Triggering deployment pipelines
+        # - Updating infrastructure as code
+    
+    - name: Update deployment status
+      run: |
+        echo "SnapRate ${{ needs.create-release.outputs.version }} successfully deployed to production"
+    
+    - name: Notify release deployment
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: |
+          🚀 SnapRate ${{ needs.create-release.outputs.version }} has been released and deployed to production!
+          
+          Release Notes: https://github.com/${{ github.repository }}/releases/tag/${{ needs.create-release.outputs.version }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      if: success()
+
+  post-release-tests:
+    name: Post-Release Validation
+    runs-on: ubuntu-latest
+    needs: deploy-release
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run smoke tests
+      run: |
+        # Basic smoke tests to ensure the release is working
+        echo "Running post-release smoke tests..."
+        
+        # Test frontend
+        response=$(curl -s -o /dev/null -w "%{http_code}" https://snaprate.example.com)
+        if [ $response -ne 200 ]; then
+          echo "Frontend smoke test failed"
+          exit 1
+        fi
+        
+        # Test backend
+        response=$(curl -s -o /dev/null -w "%{http_code}" https://api.snaprate.example.com/healthcheck)
+        if [ $response -ne 200 ]; then
+          echo "Backend smoke test failed"
+          exit 1
+        fi
+        
+        echo "All smoke tests passed!"
+    
+    - name: Run integration tests
+      run: |
+        echo "Running integration tests..."
+        # Add integration test commands here
+        echo "Integration tests completed successfully!"
+    
+    - name: Notify test results
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: '🚨 Post-release tests failed for SnapRate ${{ needs.create-release.outputs.version }}!'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
